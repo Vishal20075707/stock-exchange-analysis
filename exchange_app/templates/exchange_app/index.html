@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Exchange | Order Matching &amp; SQL Fraud Detection</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { margin: 0; background: #fef8ff; color: #0F172A; }
+
+        /* Header */
+        .header { background: #7676ff; padding: 18px 28px; color: #FFFFFF; }
+        .header .sub-top { color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+        .header h1 { margin: 3px 0; font-size: 22px; }
+        .header .sub-bot { color: #CBD5E1; font-size: 12px; }
+
+        /* Tabs */
+        .container { max-width: 1360px; margin: 14px auto; padding: 0 16px; }
+        .tab-bar { display: flex; gap: 4px; flex-wrap: wrap; }
+        .tab-btn {
+            padding: 10px 18px; background: #c4bbff; color: #000000; text-decoration: none;
+            font-weight: 700; font-size: 13px; border-radius: 6px 6px 0 0; border: 1px solid #CBD5E1; border-bottom: none;
+        }
+        .tab-btn.active { background: #FFFFFF; color: #0F172A; }
+        .tab-panel {
+            background: #FFFFFF; padding: 20px 24px; border: 1px solid #CBD5E1;
+            border-radius: 0 6px 6px 6px; min-height: 580px;
+        }
+
+        /* Buttons & Badges */
+        .btn {
+            padding: 8px 16px; border: none; border-radius: 4px; font-weight: 700;
+            font-size: 13px; cursor: pointer; text-decoration: none; display: inline-block;
+        }
+        .btn-blue { background: #6771fc; color: #FFFFFF; }
+        .btn-amber { background: #D97706; color: #FFFFFF; }
+        .btn-red { background: #DC2626; color: #FFFFFF; padding: 5px 10px; font-size: 12px; }
+        .btn-gray { background: #E2E8F0; color: #1E293B; }
+
+        /* Banners */
+        .banner { padding: 12px 16px; border-radius: 5px; font-weight: 700; font-size: 13px; margin-top: 14px; }
+        .banner-success { background: #ECFDF5; border: 1px solid #10B981; color: #065F46; }
+        .banner-info { background: #EFF6FF; border: 1px solid #3B82F6; color: #846cff; }
+        .banner-error { background: #FEF2F2; border: 1px solid #EF4444; color: #991B1B; }
+
+        /* Dashboard Grid */
+        .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .kpi-text { font-weight: 700; font-size: 15px; }
+        .charts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .chart-card { border: 1px solid #CBD5E1; border-radius: 6px; padding: 12px; background: #FFFFFF; }
+        .chart-card h4 { margin: 0 0 8px 0; font-size: 13px; text-align: center; }
+        .chart-wrap { position: relative; height: 210px; width: 100%; }
+
+        /* Form */
+        .form-box { background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; padding: 18px 20px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 32px; }
+        .form-group label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: #9481ff; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 8px 10px; border: 1px solid #94A3B8; border-radius: 4px; font-size: 13px;
+        }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+        th { background: #E2E8F0; padding: 9px 10px; text-align: center; font-weight: 700; border: 1px solid #CBD5E1; }
+        td { padding: 8px 10px; text-align: center; border: 1px solid #E2E8F0; }
+        tr.SAFE { background: #ECFDF5; color: #065F46; font-weight: 600; }
+        tr.FRAUD { background: #FEF2F2; color: #991B1B; font-weight: 600; }
+
+        /* Analysis Layout */
+        .analysis-split { display: grid; grid-template-columns: 1.45fr 1fr; gap: 18px; margin-top: 12px; }
+
+        /* SQL Lab */
+        textarea.sql-box {
+            width: 100%; height: 95px; background: #f5f8ff; color: #000000;font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;font-weight: 500; border: 1px solid #CBD5E1;
+            font-family: Consolas, monospace; font-size: 14px; padding: 12px; border-radius: 5px; margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="sub-top">STOCK EXCHANGE SURVEILLANCE</div>
+    <h1>Order Matching &amp; SQL-Based Fraud Detection System</h1>
+    <div class="sub-bot">Module 1: Price-Time Priority Matching &nbsp;|&nbsp; Module 2: MySQL Fraud Surveillance</div>
+</div>
+
+<div class="container">
+    <!-- 5 Navigation Tabs -->
+    <div class="tab-bar">
+        <a href="?tab=dashboard" class="tab-btn {% if active_tab == 'dashboard' %}active{% endif %}">1. Market Dashboard (5 Stocks)</a>
+        <a href="?tab=order" class="tab-btn {% if active_tab == 'order' %}active{% endif %}">2. Buy / Sell Order</a>
+        <a href="?tab=book" class="tab-btn {% if active_tab == 'book' %}active{% endif %}">3. Order Book &amp; Wallets</a>
+        <a href="?tab=analysis" class="tab-btn {% if active_tab == 'analysis' %}active{% endif %}">4. Fraud Analysis (Safe vs Fraud)</a>
+        <a href="?tab=sql" class="tab-btn {% if active_tab == 'sql' %}active{% endif %}">5. MySQL Query Lab</a>
+    </div>
+
+    <div class="tab-panel">
+
+        <!-- TAB 1: MARKET DASHBOARD -->
+        {% if active_tab == 'dashboard' %}
+        <div class="top-row">
+            <div class="kpi-text">
+                Exchange Live Summary &nbsp;|&nbsp; Listed Stocks: 5 &nbsp;|&nbsp; Active Orders: {{ open_cnt }} &nbsp;|&nbsp; Settled Trades: {{ trade_cnt }}
+            </div>
+            <a href="?tab=dashboard" class="btn btn-blue">Refresh Stock Graphs</a>
+        </div>
+
+        <div class="charts-grid">
+            {% for sc in stock_charts %}
+            <div class="chart-card">
+                <h4>{{ sc.title }}</h4>
+                <div class="chart-wrap">
+                    <canvas id="stockChart{{ sc.id }}"></canvas>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {{ stock_charts|json_script:"stock-charts-data" }}
+        <script>
+            const stockCharts = JSON.parse(document.getElementById('stock-charts-data').textContent);
+            stockCharts.forEach(sc => {
+                const canvas = document.getElementById('stockChart' + sc.id);
+                if (!canvas) return;
+                new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: sc.labels,
+                        datasets: [{
+                            data: sc.prices,
+                            borderColor: '#1D4ED8',
+                            backgroundColor: '#1D4ED8',
+                            borderWidth: 2,
+                            pointRadius: 2.5,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { maxRotation: 45, minRotation: 30, font: { size: 10 } } },
+                            y: { ticks: { font: { size: 10 } } }
+                        }
+                    }
+                });
+            });
+        </script>
+        {% endif %}
+
+        <!-- TAB 2: BUY / SELL ORDER -->
+        {% if active_tab == 'order' %}
+        <h2 style="margin-top:0;">Place Buy / Sell Stock Order</h2>
+        <p style="color:#64748B; font-size:13px; margin-top:-8px;">
+            Enter Trader Name, Account No., Company Stock, and Buy/Sell action. New accounts start with ₹1,00,000 &amp; 100 shares/stock.
+        </p>
+
+        <form method="POST" action="{% url 'submit_order' %}" class="form-box" id="orderForm">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="trader_name">Trader / Client Name</label>
+                    <input id="trader_name" type="text" name="trader_name" required placeholder="e.g. Amit">
+                </div>
+                <div class="form-group">
+                    <label for="account_no">Account Number</label>
+                    <input id="account_no" type="text" name="account_no" required placeholder="e.g. ACC101">
+                </div>
+                <div class="form-group">
+                    <label for="stock_id">Company Stock</label>
+                    <select id="stock_id" name="stock_id">
+                        {% for s in stocks_list %}
+                        <option value="{{ s.id }}">{{ s.name }} ({{ s.symbol }}) — ₹{{ s.price }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="side">Order Action (BUY / SELL)</label>
+                    <select id="side" name="side">
+                        <option value="BUY">BUY</option>
+                        <option value="SELL">SELL</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Quantity (No. of Shares)</label>
+                    <input id="quantity" type="number" name="quantity" min="1" required placeholder="e.g. 10">
+                </div>
+                <div class="form-group">
+                    <label for="price">Price per Share (₹)</label>
+                    <input id="price" type="number" step="0.01" name="price" min="0.01" required placeholder="e.g. 2410.60">
+                </div>
+                <div class="form-group">
+                    <label for="device_ip">Device / IP Address</label>
+                    <input id="device_ip" type="text" name="device_ip" value="192.168.1.10">
+                </div>
+            </div>
+
+            <div style="margin-top:16px;">
+                <button type="submit" class="btn btn-blue">Submit &amp; Match Order</button>
+                <button type="reset" class="btn btn-gray" style="margin-left:8px;">Clear Fields</button>
+            </div>
+        </form>
+
+        {% if order_banner %}
+        <div class="banner banner-{{ order_banner.type }}">{{ order_banner.text }}</div>
+        {% else %}
+        <div class="banner" style="background:#F8FAFC; border:1px solid #CBD5E1; color:#1E293B;">
+            Order matching &amp; MySQL settlement status will appear here after submission.
+        </div>
+        {% endif %}
+        {% endif %}
+
+        <!-- TAB 3: ORDER BOOK & WALLETS -->
+        {% if active_tab == 'book' %}
+        <h3 style="margin-top:0;">Active Order Book — OPEN &amp; PARTIAL Orders</h3>
+
+        {% if book_banner %}
+        <div class="banner banner-{{ book_banner.type }}" style="margin-bottom:12px;">{{ book_banner.text }}</div>
+        {% endif %}
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Order ID</th><th>Trader</th><th>Account No</th><th>Stock</th><th>Side</th>
+                    <th>Price</th><th>Total Qty</th><th>Remaining</th><th>Status</th><th>Device/IP</th><th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in open_orders %}
+                <tr>
+                    <td>{{ o.0 }}</td><td>{{ o.1 }}</td><td>{{ o.2 }}</td><td>{{ o.3 }}</td><td><b>{{ o.4 }}</b></td>
+                    <td>₹{{ o.5 }}</td><td>{{ o.6 }}</td><td>{{ o.7 }}</td><td>{{ o.8 }}</td><td>{{ o.9 }}</td>
+                    <td>
+                        <form method="POST" action="{% url 'cancel_order' o.0 %}" style="margin:0;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-red">Cancel</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="11" style="color:#64748B;">No open orders in the order book.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h3 style="margin-top:24px;">Trader Accounts &amp; Available Cash Balances</h3>
+        <table>
+            <thead>
+                <tr><th>Trader Name</th><th>Account No</th><th>Cash Balance (₹)</th></tr>
+            </thead>
+            <tbody>
+                {% for w in wallets %}
+                <tr><td>{{ w.0 }}</td><td>{{ w.1 }}</td><td><b>₹{{ w.2 }}</b></td></tr>
+                {% empty %}
+                <tr><td colspan="3" style="color:#64748B;">No trader accounts registered yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        <!-- TAB 4: FRAUD ANALYSIS -->
+        {% if active_tab == 'analysis' %}
+        <div class="top-row">
+            <div>
+                <a href="?tab=analysis&amp;scan=1" class="btn btn-amber">Run SQL Fraud &amp; Safety Analysis</a>
+                <span style="margin-left:14px; font-weight:700; font-size:14px;">
+                    Total Trades Analyzed: {{ fraud_report.total }} &nbsp;|&nbsp;
+                    <span style="color:#065F46;">SAFE: {{ fraud_report.safe_count }}</span> &nbsp;|&nbsp;
+                    <span style="color:#991B1B;">FLAGGED FRAUD: {{ fraud_report.fraud_count }}</span>
+                </span>
+            </div>
+        </div>
+
+        <div class="analysis-split">
+            <div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Txn ID</th><th>Stock</th><th>Buyer (Acc)</th><th>Seller (Acc)</th>
+                            <th>Qty</th><th>Price</th><th>Verdict</th><th>Classification / Fraud Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in fraud_report.rows %}
+                        <tr class="{{ r.6 }}">
+                            <td>{{ r.0 }}</td><td>{{ r.1 }}</td><td>{{ r.2 }}</td><td>{{ r.3 }}</td>
+                            <td>{{ r.4 }}</td><td>{{ r.5 }}</td><td><b>{{ r.6 }}</b></td><td style="text-align:left;">{{ r.7 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" style="color:#64748B;">No trades recorded yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div>
+                <div class="chart-card" style="margin-bottom:14px;">
+                    <h4>Transaction Classification: Safe vs. Fraud Types</h4>
+                    <div class="chart-wrap">
+                        <canvas id="fraudCatChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h4>Order Execution vs. Cancellation Pattern by Trader</h4>
+                    <div class="chart-wrap">
+                        <canvas id="traderPatternChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{ fraud_chart_json|json_script:"fraud-chart-data" }}
+        <script>
+            const rawFraud = JSON.parse(document.getElementById('fraud-chart-data').textContent);
+            const fData = typeof rawFraud === 'string' ? JSON.parse(rawFraud) : rawFraud;
+
+            new Chart(document.getElementById('fraudCatChart'), {
+                type: 'bar',
+                data: {
+                    labels: fData.cat_labels || [],
+                    datasets: [{ data: fData.cat_counts || [], backgroundColor: fData.cat_colors || [] }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            new Chart(document.getElementById('traderPatternChart'), {
+                type: 'bar',
+                data: {
+                    labels: fData.trader_names || [],
+                    datasets: [
+                        { label: 'Filled Orders (Safe)', data: fData.trader_filled || [], backgroundColor: '#10B981' },
+                        { label: 'Cancelled Orders (Spoofing)', data: fData.trader_cancelled || [], backgroundColor: '#EF4444' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+                }
+            });
+        </script>
+        {% endif %}
+
+        <!-- TAB 5: MYSQL QUERY LAB -->
+        {% if active_tab == 'sql' %}
+        <h3 style="margin-top:0;">MySQL Live Query Lab (Inspect Any Table in stock_exchange_db)</h3>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+            <a href="?tab=sql&amp;sql=SELECT+id,+stock_id,+buy_order_id,+sell_order_id,+buyer,+seller,+price,+quantity+FROM+trades+ORDER+BY+id+DESC;" class="btn btn-gray">All Trades</a>
+            <a href="?tab=sql&amp;sql=SELECT+id,+trader_name,+account_no,+side,+price,+quantity,+remaining_qty,+status+FROM+orders+ORDER+BY+id+DESC;" class="btn btn-gray">All Orders</a>
+            <a href="?tab=sql&amp;sql=SELECT+*+FROM+fraud_alerts+ORDER+BY+id+DESC;" class="btn btn-gray">Fraud Alerts Table</a>
+            <a href="?tab=sql&amp;sql=SELECT+t.name,+t.account_no,+s.symbol,+p.shares+FROM+portfolios+p+JOIN+traders+t+ON+p.trader_id%3Dt.id+JOIN+stocks+s+ON+p.stock_id%3Ds.id;" class="btn btn-gray">Trader Portfolios</a>
+        </div>
+
+        <form method="GET">
+            <input type="hidden" name="tab" value="sql">
+            <textarea name="sql" class="sql-box">{{ sql_query }}</textarea>
+            <button type="submit" class="btn btn-blue">Run SQL Query</button>
+        </form>
+
+        {% if sql_error %}
+        <div class="banner banner-error">SQL Error: {{ sql_error }}</div>
+        {% elif sql_cols %}
+        <div style="overflow-x:auto; margin-top:12px;">
+            <table>
+                <thead>
+                    <tr>{% for c in sql_cols %}<th>{{ c }}</th>{% endfor %}</tr>
+                </thead>
+                <tbody>
+                    {% for row in sql_rows %}
+                    <tr>{% for val in row %}<td>{{ val }}</td>{% endfor %}</tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% endif %}
+
+    </div>
+</div>
+
+</body>
+</html>
